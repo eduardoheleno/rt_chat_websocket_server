@@ -1,33 +1,33 @@
-use tokio::net::TcpListener;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::thread;
+use websocket::{sync::Server, OwnedMessage};
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let listener = TcpListener::bind("127.0.0.1:8081").await?;
+fn main() {
+	let server = Server::bind("127.0.0.1:8081").unwrap();
 
-    loop {
-        let (mut socket, _) = listener.accept().await?;
+	for request in server.filter_map(Result::ok) {
+		thread::spawn(|| {
+            let client = request.accept().unwrap();
+			let ip = client.peer_addr().unwrap();
 
-        tokio::spawn(async move {
-            let mut buf = [0; 1024];
+			println!("Connection from {}", ip);
 
-            loop {
-                let n = match socket.read(&mut buf).await {
-                    Ok(0) => return,
-                    Ok(n) => n,
-                    Err(e) => {
-                        eprintln!("{:?}", e);
+			let (mut receiver, mut sender) = client.split().unwrap();
+
+			for message in receiver.incoming_messages() {
+				let message = message.unwrap();
+                println!("{:?}", message);
+
+                match message {
+                    OwnedMessage::Text(_) => {
+                        sender.send_message(&message).unwrap();
                         return;
                     }
-                };
-
-                println!("{n}");
-
-                if let Err(e) = socket.write_all("test".as_bytes()).await {
-                    eprintln!("{:?}", e);
-                    return;
+                    _ => {
+                        println!("no data");
+                        return;
+                    }
                 }
-            }
-        });
-    }
+			}
+		});
+	}
 }
