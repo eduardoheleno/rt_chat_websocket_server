@@ -1,4 +1,15 @@
-use std::{net::{SocketAddr, TcpStream}, sync::{Arc, Mutex}, thread};
+use std::{
+    net::{
+        SocketAddr,
+        TcpStream
+    }, 
+    sync::{
+        Arc,
+        Mutex
+    },
+    process::exit,
+    thread
+};
 use websocket::{sync::{Server, Writer}, OwnedMessage};
 
 struct UserInfo {
@@ -42,17 +53,17 @@ fn main() {
             locked_user_pool.push(user_info);
             drop(locked_user_pool);
 
-            // TODO: can't receive messages
 			for message in receiver.incoming_messages() {
-				let message = message.unwrap();
+                let message = message.expect("Error on fetching message");
 
                 match message {
+                    // only type supported for now
                     OwnedMessage::Text(m) => {
                         println!("message: {m}");
                     }
                     _ => {
-                        println!("no data");
-                        return;
+                        eprintln!("unsupported type of message");
+                        exit(2);
                     }
                 }
 			}
