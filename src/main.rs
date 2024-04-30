@@ -2,13 +2,10 @@ use std::{
     net::{
         SocketAddr,
         TcpStream
-    }, 
-    sync::{
+    }, process::exit, sync::{
         Arc,
         Mutex
-    },
-    process::exit,
-    thread
+    }, thread
 };
 use websocket::{sync::{Server, Writer}, OwnedMessage};
 
@@ -46,7 +43,7 @@ fn main() {
 
 			let (mut receiver, mut sender) = client.split().unwrap();
 
-            let user_info = UserInfo { username: username_string, ip, sender };
+            let user_info = UserInfo { username: username_string.to_owned(), ip, sender };
 			println!("Connection from {}", user_info.ip);
 
             let mut locked_user_pool = up_ref.lock().unwrap();
@@ -60,6 +57,15 @@ fn main() {
                     // only type supported for now
                     OwnedMessage::Text(m) => {
                         println!("message: {m}");
+                        let message_with_username = format!("{};{}", m, username_string);
+                        let to_send_message = OwnedMessage::Text(message_with_username);
+
+                        let mut locked_user_pool = up_ref.lock().unwrap();
+                        locked_user_pool.iter_mut().for_each(|user_info| {
+                            user_info.sender.send_message(&to_send_message).expect("Could not send dataframe");
+                        });
+
+                        drop(locked_user_pool);
                     }
                     _ => {
                         eprintln!("unsupported type of message");
